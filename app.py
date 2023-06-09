@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, render_template, request, redirect, url_for
 import pandas as pd
 from itertools import combinations
@@ -20,6 +22,7 @@ def home():
         return redirect(url_for('home'))
 
     return render_template('home.html', players=players)
+
 
 @app.route('/generate-competition')
 def generate_competition():
@@ -108,4 +111,4 @@ def update_standings(player_name, points):
 
 
 if __name__ == '__main__':
-    app.run(port=5071)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
