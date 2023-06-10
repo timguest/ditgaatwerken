@@ -18,10 +18,10 @@
                     <h2 class="card-title text-success">Competition Schedule</h2>
                     <!-- Schedule Table Starts Here -->
                     <!-- Loop for schedule starts here -->
-                    {% for week_number, week_schedule in schedule %}
+                    {% for week in schedule %}
                     <form action="{{ url_for('update_score') }}" method="POST">
                         <!-- Hidden field for the week number -->
-                        <input type="hidden" name="week_number" value="{{ week_number }}">
+                        <input type="hidden" name="week_number" value="{{ week['week'] }}">
                         <table class="table table-bordered">
                             <thead>
                             <tr>
@@ -33,26 +33,45 @@
                             </tr>
                             </thead>
                             <tbody>
-
                             <!-- Loop for matches in the week -->
-                            {% for match in week_schedule %}
+                            {% for match in week['matches'] %} <!-- Corrected line -->
                             <tr>
-                                <td>{{ week_number }}</td> <!-- Week number -->
-                                <td>{{ match[0] }}</td> <!-- Player home -->
-                                <td>{{ match[1] }}</td> <!-- Player away -->
-                                <td><input type="number" min="0" class="form-control" placeholder="Score"
-                                           name="score_home_{{ week_number }}_{{ loop.index0 }}"
-                                           value="{{ match[2][0] if match[2] else '' }}"></td>
-                                <td><input type="number" min="0" class="form-control" placeholder="Score"
-                                           name="score_away_{{ week_number }}_{{ loop.index0 }}"
-                                           value="{{ match[2][1] if match[2] else '' }}"></td>
-
+                                <td>{{ week['week'] }}</td> <!-- Week number -->
+                                <td>{{ match['player1'] }}</td> <!-- Player home -->
+                                <td>{{ match['player2'] }}</td> <!-- Player away -->
+                                <td>
+                                    {% if not match['updated'] or not week['edit'] %}
+                                    <input type="number" min="0" class="form-control" placeholder="Score"
+                                           name="score_home_{{ week.week }}_{{ loop.index0 }}"
+                                           value="{{ match['score_home'] }}">
+                                    {% else %}
+                                    {{ match['score_home'] }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if not match['updated'] or not week['edit'] %}
+                                    <input type="number" min="0" class="form-control" placeholder="Score"
+                                           name="score_away_{{ week.week }}_{{ loop.index0 }}"
+                                           value="{{ match['score_away'] }}">
+                                    {% else %}
+                                    {{ match['score_away'] }}
+                                    {% endif %}
+                                </td>
                             </tr>
                             {% endfor %}
-
                             </tbody>
                         </table>
+                        {% if week.allow_update %}
                         <button class="btn btn-primary mt-2" type="submit">Update Score</button>
+                        {% endif %}
+                        <!-- Inside the form, after the "Update Score" button -->
+                        {% if week['edit'] %}
+                        <button class="btn btn-primary mt-2" type="button"
+                                onclick="window.location.href='{{ url_for('edit_score', week_number=week['week']) }}'">
+                            Edit Score
+                        </button>
+                        {% endif %}
+
                     </form>
                     <hr> <!-- A separator line between weeks -->
                     {% endfor %}
