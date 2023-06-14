@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<header class="bg-success text-white py-3 mb-5">
+    <div class="container d-flex justify-content-center">
+        <h1 class="mb-0">User Login</h1>
+    </div>
+</header>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-4">
+            <div class="card mb-4 shadow">
+                <div class="card-body">
+                    <h2 class="card-title">Sign In</h2>
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        <div class="form-group">
+                            {{ form.username.label(class="form-label") }}
+                            {{ form.username(class="form-control", required=True) }}
+                        </div>
+                        <div class="form-group">
+                            {{ form.password.label(class="form-label") }}
+                            {{ form.password(class="form-control", required=True) }}
+                        </div>
+                        <div class="form-group">
+                            {{ form.remember_me(class="form-check-input") }}
+                            {{ form.remember_me.label(class="form-check-label") }}
+                        </div>
+                        <div class="form-group">
+                            {{ form.submit(class="btn btn-success btn-block mt-4") }}
+                        </div>
+                        <div class="form-group d-flex justify-content-end">
+                            <a href="{{ url_for('register') }}" class="btn btn-primary mt-2">Register</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

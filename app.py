@@ -3,16 +3,31 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 import pandas as pd
 from itertools import combinations
 
+from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, IntegerField
-from wtforms.validators import DataRequired, Length, NumberRange
+from wtforms.validators import DataRequired, Length, NumberRange, Email
+from flask_login import UserMixin, LoginManager, login_user, login_required, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+from wtforms import PasswordField, BooleanField
+from wtforms.validators import EqualTo
+
 
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'tommy_de_hond'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
 db = SQLAlchemy(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+
     # schedule = [
     #     {'week': 1, 'edit': False, 'allow_update': True,
     #      'matches': [{'player1': 'Tim', 'player2': 'Jos', 'score_home': None, 'score_away': None, 'updated': False},
@@ -34,6 +49,8 @@ class Player(db.Model):
     name = db.Column(db.String(100), nullable=False)
     handicap = db.Column(db.Integer, nullable=False)
     score = db.Column(db.Integer, default=0)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+
 
 class Week(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -41,6 +58,8 @@ class Week(db.Model):
     edit = db.Column(db.Boolean, default=False)
     allow_update = db.Column(db.Boolean, default=True)
     matches = db.relationship('Match', backref='week', lazy=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+
 
 class Match(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -50,6 +69,29 @@ class Match(db.Model):
     score_away = db.Column(db.Integer)
     updated = db.Column(db.Boolean, default=False)
     week_id = db.Column(db.Integer, db.ForeignKey('week.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    password = db.Column(db.String(100), nullable=False)
+    players = db.relationship('Player', backref='user', lazy=True)
+    weeks = db.relationship('Week', backref='user', lazy=True)
+    matches = db.relationship('Match', backref='user', lazy=True)
+
+class RegistrationForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired()])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    password = PasswordField('Password', validators=[DataRequired()])
+    password2 = PasswordField('Repeat Password', validators=[DataRequired()])
+    submit = SubmitField('Register')
+
+class LoginForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired()])
+    password = PasswordField('Password', validators=[DataRequired()])
+    remember_me = BooleanField('Remember Me')
+    submit = SubmitField('Login')
+
 
 
 with app.app_context():
@@ -67,11 +109,16 @@ class Competition:
 
     def generate_schedule(self):
         # Get all players
-        players = Player.query.all()
+        players = Player.query.filter_by(user_id=current_user.id).all()
         players_df = pd.DataFrame([(p.id, p.name) for p in players], columns=["id", "name"])
         player_combinations = list(combinations(players_df["id"].to_list(), 2))
 
         for i in range(len(players) - 1):
+            existing_week = Week.query.filter_by(number=i + 1).first()
+            if existing_week:
+                # If it exists, skip the rest of this iteration and continue with the next one
+                continue
+
             week = Week(number=i + 1, edit=False, allow_update=True)
             db.session.add(week)
             try:
@@ -149,7 +196,7 @@ class Competition:
 
     def update_standings_from_schedule(self):
         # Reset all player scores
-        players = Player.query.all()
+        players = Player.query.filter_by(user_id=current_user.id).all()
         for player in players:
             player.score = 0
 
@@ -188,35 +235,29 @@ class PlayerForm(FlaskForm):
 
 @app.route('/', methods=['GET', 'POST'])
 def home():
+    # Check if a user is logged in
+    if not current_user.is_authenticated:
+        # Redirect to login page if user is not logged in
+        return redirect(url_for('login'))
+
     form = PlayerForm()
     if form.validate_on_submit():
         name = form.name.data
         handicap = form.handicap.data
-
-        # Create a new player and add them to the session
-        new_player = Player(name=name, handicap=handicap, score=0)
+        new_player = Player(name=name, handicap=handicap, score=0, user_id=current_user.id)
         db.session.add(new_player)
-
-        # Commit the session to save the changes in the database
         try:
             db.session.commit()
         except Exception as e:
-            # Handle the exception
             print(e)
             db.session.rollback()
             flash('Error occurred while adding the player.', 'error')
             return redirect(url_for('home'))
 
-        # No need for this line anymore
-        # competition.add_player(name, handicap)
-
         return redirect(url_for('home'))
-    players = Player.query.all()
-
-    # Convert the Player objects into dictionaries
+    players = Player.query.filter_by(user_id=current_user.id).all()
     competition.players = [{'name': player.name, 'handicap': player.handicap, 'score': player.score} for player in players]
 
-    # Query all the players from the database
     return render_template('home.html', players=competition.players, form=form)
 
 
@@ -224,6 +265,16 @@ def home():
 def generate_competition():
     competition.generate_schedule()
     competition.get_schedule()
+
+    # Commit changes after generating schedule
+    try:
+        db.session.commit()
+    except Exception as e:
+        print(e)
+        db.session.rollback()
+        flash('An error occurred while generating the schedule.', 'error')
+        return redirect(url_for('home'))
+
     return render_template('competition.html', schedule=competition.schedule, standings=competition.players)
 
 
@@ -238,6 +289,9 @@ def edit_score(week_number):
 
         # Commit the changes to the database
         db.session.commit()
+
+    competition.update_standings_from_schedule()
+    competition.get_schedule()
 
     return render_template('competition.html', schedule=competition.schedule, standings=competition.standings)
 
@@ -271,8 +325,42 @@ def update_score():
     db.session.commit()
 
     competition.update_standings_from_schedule()
+    competition.get_schedule()
 
     return render_template('competition.html', schedule=competition.schedule, standings=competition.standings)
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    form = RegistrationForm()
+    if form.validate_on_submit():
+        hashed_password = generate_password_hash(form.password.data, method='sha256')
+        new_user = User(username=form.username.data, password=hashed_password)
+        db.session.add(new_user)
+        db.session.commit()
+        return redirect(url_for('login'))
+    return render_template('register.html', form=form)
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(username=form.username.data).first()
+        if user and check_password_hash(user.password, form.password.data):
+            login_user(user, remember=form.remember_me.data)  # Add 'remember' parameter here
+            return redirect(url_for('home'))
+        else:
+            flash('Invalid username or password')
+    return render_template('login.html', form=form)
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
+
+
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
