@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import pandas as pd
 from itertools import combinations
 
@@ -12,12 +12,16 @@ from flask_login import UserMixin, LoginManager, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 from wtforms import PasswordField, BooleanField
 from wtforms.validators import EqualTo
+import stripe
 
 
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'tommy_de_hond'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
+app.config['STRIPE_PUBLIC_KEY'] = 'your-public-key'
+app.config['STRIPE_SECRET_KEY'] = 'your-secret-key'
+
 db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -359,7 +363,65 @@ def logout():
     return redirect(url_for('login'))
 
 
+@app.route('/create-checkout-session', methods=['POST'])
+@login_required
+def create_checkout_session():
+    stripe.api_key = app.config['STRIPE_SECRET_KEY']
 
+    try:
+        # Set up the checkout session
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[
+                {
+                    'price_data': {
+                        'currency': 'eur',
+                        'product_data': {
+                            'name': 'Premium Subscription',
+                        },
+                        'unit_amount': 500,  # This is in the smallest currency unit, so this is 5.00 EUR
+                    },
+                    'quantity': 1,
+                }
+            ],
+            mode='payment',
+            success_url=url_for('success', _external=True) + '?session_id={CHECKOUT_SESSION_ID}',
+            cancel_url=url_for('cancel', _external=True),
+        )
+
+        return jsonify({'id': checkout_session.id})
+    except Exception as e:
+        return str(e)
+
+
+@app.route('/webhook', methods=['POST'])
+def stripe_webhook():
+    payload = request.get_data(as_text=True)
+    sig_header = request.headers.get('Stripe-Signature')
+
+    event = None
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, app.config['STRIPE_ENDPOINT_SECRET']
+        )
+    except ValueError as e:
+        # Invalid payload
+        return 'Invalid payload', 400
+    except stripe.error.SignatureVerificationError as e:
+        # Invalid signature
+        return 'Invalid signature', 400
+
+    # Handle the checkout.session.completed event
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+
+        # Update the user's subscription status
+        user = User.query.filter_by(email=session.customer_email).first()
+        user.subscription_status = 'premium'
+        db.session.commit()
+
+    return '', 200
 
 
 if __name__ == '__main__':
