@@ -9,7 +9,7 @@ from constants import OPENAI_API_KEY
 import os
 os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 
-path = ('test_belastingdienst.pdf')
+path = ('test_belasting.pdf')
 
 reader = PdfReader(path)
 
@@ -42,7 +42,7 @@ from langchain.llms import OpenAI
 # you cna choose different models of gpt.
 chain = load_qa_chain(OpenAI(), chain_type="stuff")
 
-query = "Welke zinnen kunnen volgens jou verbeterd worden om de tekst begrijpelijker te maken"
+query = "Wanneer zijn mijn zorgkosten aftrekbaar"
 # search in the embeddings, symantacaly
 docs = docsearch.similarity_search(query)
 hoi = chain.run(input_documents=docs, question=query)
