@@ -1,35 +1,24 @@
 from PyPDF2 import PdfReader
 from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.vectorstores import ElasticVectorSearch, Pinecone, Weaviate, FAISS
+from langchain.text_splitter import CharacterTextSplitter, RecursiveCharacterTextSplitter
+from langchain.vectorstores import ElasticVectorSearch, Pinecone, Weaviate, FAISS, Chroma
 from constants import OPENAI_API_KEY
+from langchain.chains import RetrievalQA
+from langchain.document_loaders import TextLoader
+from langchain.llms import OpenAI
 
 # Get your API keys from openai, you will need to create an account.
 # Here is the link to get the keys: https://platform.openai.com/account/billing/overview
 import os
 os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 
-path = ('test_belasting.pdf')
-
-reader = PdfReader(path)
-
-# read data from the file and put them into a variable called raw_text
-raw_text = ''
-for i, page in enumerate(reader.pages):
-    text = page.extract_text()
-    if text:
-        raw_text += text
-
-text_splitter = CharacterTextSplitter(
-    separator = "\n",
-    chunk_size = 1000,
-    chunk_overlap  = 200,
-    length_function = len,
-)
-texts = text_splitter.split_text(raw_text)
-
 # Download embeddings from OpenAI
 embeddings = OpenAIEmbeddings()
+
+vectordb = Chroma(persist_directory='db', embedding_function=embeddings)
+retriever = vectordb.as_retriever()
+qa_chain = RetrievalQA.from_chain_type(llm=OpenAI(), chain_type='stuff', retriever=retriever, return_source_documents=False)
+response = qa_chain('Is mijn bril aftrekbaar voor de Belastingdienst?')
 
 # convert text to embedding
 # this will convert the text to embedding and store it.
