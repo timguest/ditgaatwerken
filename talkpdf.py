@@ -16,8 +16,13 @@ os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 embeddings = OpenAIEmbeddings()
 
 vectordb = Chroma(persist_directory='db', embedding_function=embeddings)
-retriever = vectordb.as_retriever()
-qa_chain = RetrievalQA.from_chain_type(llm=OpenAI(), chain_type='stuff', retriever=retriever, return_source_documents=False)
+from langchain.chains.question_answering import load_qa_chain
+# retriever = vectordb.as_retriever()
+# qa_chain = RetrievalQA.from_chain_type(llm=OpenAI(), chain_type='stuff', retriever=retriever, return_source_documents=False)
+query = 'Is mijn bril aftrekbaar voor de Belastingdienst?'
+chain = load_qa_chain(OpenAI(), chain_type="stuff")
+docs = vectordb.similarity_search(query)
+return_answer = chain.run(input_documents=docs, question=query)
 response = qa_chain('Is mijn bril aftrekbaar voor de Belastingdienst?')
 
 # convert text to embedding
