@@ -15,9 +15,9 @@ os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 #
 # vectordb = Chroma(persist_directory='db', embedding_function=embeddings)
 chain = load_qa_chain(OpenAI(), chain_type="stuff")
-vectordb = create_vector_db('belastingen.docx', 'faiss')
-query = 'Zijn mijn kosten voor mijn zorgrobot aftrekbaar?'
+vectordb = create_vector_db('Belastingen_huis.docx', 'faiss')
+query = 'Hi ik heb een woonboot waarmee ik rondvaar door Nederland en ik vroeg mij af of ik dit bij mij belastingaangifte moet optellen? '
 
 docs = vectordb.similarity_search(query)
-return_answer = chain.run(input_documents=docs, question=query + 'Geef een zo compleet en duidelijk mogelijk antwoord en geef een voorbeeld')
+return_answer = chain.run(input_documents=docs, question=query + ' Geef een zo compleet en duidelijk mogelijk antwoord. Verzin geen antwoorden, zodra je de informatie niet kan vinden zeg dat dan.')
 print(return_answer)

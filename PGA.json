@@ -1,0 +1,25 @@
+{
+  "main_topic": "Persoonsgebondenaftrek",
+  "subtopics": [
+    {
+      "subtopic": "Partner alimentatie",
+      "QA_pairs": [
+        {
+          "question": "Mag ik partneralimentatie aftrekken in aangifte inkomstenbelasting?",
+          "answer": "You can file your income tax online via the official government website...",
+          "tags": [
+            "income tax",
+            "filing process"
+          ],
+          "last_updated": "2023-05-01",
+          "confidence_score": 0.9,
+          "related_topics": [
+            "Online Tax Filing",
+            "Tax Refund",
+            "Deadline for Filing"
+          ]
+        }
+      ]
+    }
+  ]
+}

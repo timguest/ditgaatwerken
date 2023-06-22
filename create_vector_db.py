@@ -30,9 +30,9 @@ def create_vector_db(path, method):
 
     text_splitter = CharacterTextSplitter(
         separator="\n",
-        chunk_size=1000,
-        chunk_overlap=200,
-        length_function=len,
+        chunk_size=400,
+        chunk_overlap=40,
+        length_function=len
     )
     texts = text_splitter.split_text(raw_text)
 
@@ -50,6 +50,7 @@ def create_vector_db(path, method):
         vectordb.persist()
     else:
         vectordb = FAISS.from_texts(texts, embeddings)
+
 
     return vectordb
 
